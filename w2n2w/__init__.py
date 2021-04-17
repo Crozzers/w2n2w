@@ -54,16 +54,17 @@ def word_to_num(word):
 
     Returns:
         int
-        float: if the phrase contains the word 'point' it is treated as a decimal
+        float: if the phrase contains the word 'point' or '.' it is treated as a decimal
     '''
     if type(word) != str:
         raise ValueError('word must be a string')
 
-    if 'point' in word:
+    if 'point' in word or '.' in word:
         # so it's a decimal number
-        if word.count('point') > 1:
-            raise ValueError('too many occurences of the word "point" to be a valid decimal')
-        left, right = word.split('point')
+        delim = 'point' if 'point' in word else '.'
+        if word.count(delim) > 1:
+            raise ValueError(f'too many occurences of "{delim}" to be a valid decimal')
+        left, right = word.split(delim)
         if not left:
             left = 0
         else:
