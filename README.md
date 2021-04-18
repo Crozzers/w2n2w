@@ -56,6 +56,8 @@ print(w2n2w.word_to_num('first'))
 > ValueError: invalid number word "first"
 print(w2n2w.word_to_num('seventy second'))
 > ValueError: invalid number word "second"
-print(w2n2w.word_to_num('one and one half')):
+print(w2n2w.word_to_num('one and one half'))
 > ValueError: invalid number word "half"
+print(w2n2w.word_to_num('one two three'))
+> 6
 ```

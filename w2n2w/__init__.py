@@ -45,9 +45,8 @@ number_words = {
 
 def word_to_num(word):
     '''
-    Converts a word, like "three", "sixty seven" or
-    "one hundred and twenty three million four hundred and fifty six thousand seven hundred and eighty nine"
-    to a number.
+    Converts a word, like "three", "sixty seven" to a number.
+    Can also handle decimals and negative numbers.
 
     Args:
         word (str): the word to convert
@@ -60,14 +59,18 @@ def word_to_num(word):
         raise ValueError('word must be a string')
 
     if 'point' in word or '.' in word:
-        # so it's a decimal number
+        # so it's a decimal number decice on the delimiter, whether its the word "point"
+        # or a decimal point then split the word by that delimiter
         delim = 'point' if 'point' in word else '.'
         if word.count(delim) > 1:
             raise ValueError(f'too many occurences of "{delim}" to be a valid decimal')
         left, right = word.split(delim)
         if not left:
+            # EG: "point five"
             left = 0
         else:
+            # the left is a regular number with regular rules so pass that to
+            # word_to_num to sort out
             left = word_to_num(left)
 
         r = ''
@@ -76,6 +79,11 @@ def word_to_num(word):
                 r += i
             else:
                 try:
+                    # only sample from decimal_words because decimals should be in
+                    # standard format, ie: noone should say "one point nineteen"
+                    # it should be "one point one nine" and if we open the can
+                    # of worms to parse that then we have to decide how to parse
+                    # things like "one point twenty three". Is it 1.23 or 1.203?
                     r += str(decimal_words[i])
                 except ValueError:
                     raise ValueError(f'invalid decimal word "{i}"')
@@ -183,7 +191,7 @@ def word_to_num(word):
 
 def num_to_word(num):
     '''
-    Converts a number into words
+    Converts a number into words. Can handle decimals and negatives
 
     Args:
         num (str, int or float): the number to convert
@@ -193,8 +201,11 @@ def num_to_word(num):
     '''
     if isinstance(num, float):
         num = str(num).split('.')
+        # parse the left like a regular number because it essentially is
         left = num_to_word(int(num[0]))
 
+        # since decimals are in a nice easy format we just
+        # have to concatenate a string of words
         dw_backwards = {v: k for k, v in decimal_words.items()}
         right = ' '.join([dw_backwards[int(i)] for i in num[1]])
 
@@ -241,7 +252,7 @@ def num_to_word(num):
             elif int(chunk) in nw_backwards and chunk != '100':
                 # the !='100' makes sure that we parse it as "one hundred" and not just "hundred"
 
-                # if this chunk is in the reversed number_words dict's keys
+                # if this chunk is in the reversed number_words dict's keys (so it's a number)
                 # then slap that right in. No need to make any decisions ourselves
                 parsed.insert(0, nw_backwards[int(chunk)] + addon)
             else:
@@ -264,7 +275,7 @@ def num_to_word(num):
                             # if the chunk isnt directly mentioned, eg: 25
                             # then we split the number into its digits, times the first by 10
                             # to get its word and combine with the second.
-                            # eg: 25 -> (2*10) + '5' -> [20, 5] -> ['twenty', 'five']
+                            # eg: 25 -> (2*10) + 5 -> [20, 5] -> ['twenty', 'five']
                             if tmp:
                                 tmp += ' and '
                             tmp += nw_backwards[int(chunk[0]) * 10] + ' ' + nw_backwards[int(chunk[1])]
