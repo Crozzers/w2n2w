@@ -14,7 +14,7 @@ So I forked and re-wrote word2number and here we are.
 
 ## What does it do?
 
-Converts number words like "forty three" to integers/floats. Can handle numbers less than 1 quadrillion (and greater than negative 1 quadrillion)
+Converts number words like "forty three" to integers/floats.
 
 ```python
 import w2n2w
@@ -45,6 +45,9 @@ print(w2n2w.num_to_word(-0.999))
 print(w2n2w.num_to_word(0))
 > 'zero'
 ```
+
+In theory this library can handle any real number (positive or negative) but for numbers greater than or equal to one undecillion (10^36) you will start to face issues, as these numbers are represented in terms of the highest order of magnitude this library knows.  
+So 10^36 is represented as `10^33 * 1000` or 'one thousand decillion'.
 
 ## Things this library cannot do?
 

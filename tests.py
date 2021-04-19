@@ -34,6 +34,8 @@ class TestWordToNumber(unittest.TestCase):
         self.assertEqual(w2n2w.word_to_num('minus twenty-two point two six'), -22.26)
         self.assertEqual(w2n2w.word_to_num('negative ninety nine'), -99)
         self.assertEqual(w2n2w.word_to_num('negative zero'), 0)
+        self.assertEqual(w2n2w.word_to_num('one octillion four hundred and sixty three trillion and nine'), 10**27 + (463 * 10**12) + 9)
+        self.assertEqual(w2n2w.word_to_num('one million decillion'), 10**6 * 10**33)
 
     def test_negatives(self):
         self.assertRaises(ValueError, w2n2w.word_to_num, '-')
@@ -74,6 +76,9 @@ class TestNumberToWord(unittest.TestCase):
         self.assertEqual(w2n2w.num_to_word(-123), 'negative one hundred and twenty three')
         self.assertEqual(w2n2w.num_to_word(-29.666), 'negative twenty nine point six six six')
         self.assertEqual(w2n2w.num_to_word(-0), 'zero')
+
+        self.assertEqual(10**27 + (463 * 10**12) + 9, w2n2w.word_to_num('one octillion four hundred and sixty three trillion and nine'))
+        self.assertEqual(10**6 * 10**33, w2n2w.word_to_num('one million decillion'))
 
     def test_negatives(self):
         self.assertRaises(ValueError, w2n2w.num_to_word, 'not a num')

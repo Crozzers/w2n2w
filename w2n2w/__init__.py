@@ -1,10 +1,21 @@
 magnitudes = {
     'hundred': 100,
     'thousand': 1_000,
-    'million': 1_000_000,
-    'billion': 1_000_000_000,
-    'trillion': 1_000_000_000_000
+    'million': 10**6,
+    'billion': 10**9,
+    'trillion': 10**12,
+    'quadrillion': 10**15,
+    'quintillion': 10**18,
+    'sextillion': 10**21,
+    'septillion': 10**24,
+    'octillion': 10**27,
+    'nonillion': 10**30,
+    'decillion': 10**33
 }
+# populate the magnitudes dict for magnitudes up to 1 decillion
+# because if you're parsing numbers bigger than that then this library
+# not having support is the least of your problems
+
 
 decimal_words = {
     'zero': 0,
@@ -41,6 +52,9 @@ number_words = {
     'ninety': 90,
     **magnitudes
 }
+
+# this comes in useful in num_to_word
+number_words_backwards = {v: k for k, v in number_words.items()}
 
 
 def word_to_num(word):
@@ -221,16 +235,12 @@ def num_to_word(num):
         else:
             minus = False
 
-        # create a dict where the keys and values are swapped. This is
-        # useful later
-        nw_backwards = {v: k for k, v in number_words.items()}
-
-        if int(num) in nw_backwards:
+        if int(num) in number_words_backwards:
             # to handle simple cases like 0, 1, 2...
             if minus:
-                return 'negative ' + nw_backwards[int(num)]
+                return 'negative ' + number_words_backwards[int(num)]
             else:
-                return nw_backwards[int(num)]
+                return number_words_backwards[int(num)]
 
         # split the number into 3 digit chunks
         num = num[::-1]
@@ -241,56 +251,84 @@ def num_to_word(num):
         split_magnitudes = [''] + [i for i in magnitudes.keys() if i != 'hundred']
         parsed = []
 
-        for index, chunk in enumerate(chunks[::-1]):
-            # get the suffix for the chunk we are parsing
-            addon = ''
-            if split_magnitudes[index]:
-                addon = ' ' + split_magnitudes[index]
+        if len(chunks) > len(split_magnitudes):
+            # if we have more chunks than we have magnitudes then we are going to have
+            # to stack magnitudes, EG: 10**15 -> one thousand trillion
+            # and 10**18 -> million trillion.
+            # this is technically a valid number word? It's better than having an IndexError
 
-            if int(chunk) == 0:
-                continue
-            elif int(chunk) in nw_backwards and chunk != '100':
-                # the !='100' makes sure that we parse it as "one hundred" and not just "hundred"
+            # use this alias for convenience
+            lsm = len(split_magnitudes)
+            # reverse the chunks so the chunking in the for loop is easier to think about
+            chunks = chunks[::-1]
+            for i in range(0, len(chunks), lsm - 1):
+                # chunk the list into chunks that can be handled by our selection of magnitudes
+                chunk = chunks[i: i + lsm - 1][::-1]
+                # process each chunk and insert into the parsed list
+                w = num_to_word(''.join(chunk))
+                if w != 'zero':
+                    # for big numbers like 10**25 there will be many trailing zeroes
+                    # so dont add those
+                    parsed.insert(0, w)
+            # tag the correct number of magnitudes onto the first word in the list
+            # this should be the largest magnitude word we have repeated for the
+            # number of chunks we created
+            parsed[0] = parsed[0] + ((' ' + split_magnitudes[-1]) * (i // (lsm - 1)))
+        else:
+            for index, chunk in enumerate(chunks[::-1]):
+                # get the suffix for the chunk we are parsing
+                addon = ''
+                if split_magnitudes[index]:
+                    addon = ' ' + split_magnitudes[index]
 
-                # if this chunk is in the reversed number_words dict's keys (so it's a number)
-                # then slap that right in. No need to make any decisions ourselves
-                parsed.insert(0, nw_backwards[int(chunk)] + addon)
-            else:
-                chunk = str(int(chunk))  # gets rid of leading zeroes
-                tmp = ''
-                if len(chunk) == 3:
-                    # if it's a 3 digit chunk then take the first digit
-                    # and put the "X hundred"
-                    tmp += nw_backwards[int(chunk[0])] + ' hundred'
-                    chunk = chunk[1:]
-                if int(chunk) != 0:
-                    # if the rest of the chunk is just zeroes then don't parse it
-                    if len(chunk) == 2:
-                        if int(chunk) in nw_backwards:
-                            # if the chunk is directly mentioned in the dict, eg: 17
-                            if tmp:
-                                tmp += ' and '
-                            tmp += nw_backwards[int(chunk)]
+                if int(chunk) == 0:
+                    continue
+                elif int(chunk) in number_words_backwards and chunk != '100':
+                    # the !='100' makes sure that we parse it as "one hundred" and not just "hundred"
+
+                    # if this chunk is in the reversed number_words dict's keys (so it's a number)
+                    # then slap that right in. No need to make any decisions ourselves
+                    parsed.insert(0, number_words_backwards[int(chunk)] + addon)
+                else:
+                    chunk = str(int(chunk))  # gets rid of leading zeroes
+                    tmp = ''
+                    if len(chunk) == 3:
+                        # if it's a 3 digit chunk then take the first digit
+                        # and put the "X hundred"
+                        tmp += number_words_backwards[int(chunk[0])] + ' hundred'
+                        chunk = chunk[1:]
+                    if int(chunk) != 0:
+                        # if the rest of the chunk is just zeroes then don't parse it
+                        if len(chunk) == 2:
+                            if int(chunk) in number_words_backwards:
+                                # if the chunk is directly mentioned in the dict, eg: 17
+                                if tmp:
+                                    tmp += ' and '
+                                tmp += number_words_backwards[int(chunk)]
+                            else:
+                                # if the chunk isnt directly mentioned, eg: 25
+                                # then we split the number into its digits, times the first by 10
+                                # to get its word and combine with the second.
+                                # eg: 25 -> (2*10) + 5 -> [20, 5] -> ['twenty', 'five']
+                                if tmp:
+                                    tmp += ' and '
+                                tmp += (
+                                    number_words_backwards[int(chunk[0]) * 10]
+                                    + ' '
+                                    + number_words_backwards[int(chunk[1])]
+                                )
                         else:
-                            # if the chunk isnt directly mentioned, eg: 25
-                            # then we split the number into its digits, times the first by 10
-                            # to get its word and combine with the second.
-                            # eg: 25 -> (2*10) + 5 -> [20, 5] -> ['twenty', 'five']
+                            # by now the length of the chunk must be 1 digit long
+                            # therefore it must be in the dict
                             if tmp:
                                 tmp += ' and '
-                            tmp += nw_backwards[int(chunk[0]) * 10] + ' ' + nw_backwards[int(chunk[1])]
-                    else:
-                        # by now the length of the chunk must be 1 digit long
-                        # therefore it must be in the dict
-                        if tmp:
-                            tmp += ' and '
-                        tmp += nw_backwards[int(chunk)]
+                            tmp += number_words_backwards[int(chunk)]
 
-                if tmp:
-                    # if we parsed any values then insert them here
-                    parsed.insert(0, tmp + addon)
+                    if tmp:
+                        # if we parsed any values then insert them here
+                        parsed.insert(0, tmp + addon)
 
-        if len(parsed) >= 2 and ' and ' not in ' '.join(parsed):
+        if len(parsed) >= 2 and ' and ' not in ' '.join(parsed) and parsed[-1] not in split_magnitudes:
             # makes sure that the last segment of the number is joined by an 'and'
             # if it isn't already. So ['one hundred thousand', 'thirty two']
             # should end up joined, but ['four hundred thousand', 'one hundred and two']
