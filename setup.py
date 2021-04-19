@@ -3,8 +3,8 @@ from setuptools import setup
 setup(
     name='w2n2w',
     packages=['w2n2w'],
-    version='0.1.2',
-    license=open('LICENSE').read(),
+    version='0.1.3',
+    license='MIT',
     description='Convert words to numbers and back again',
     author='Crozzers',
     author_email='captaincrozzers@gmail.com',
