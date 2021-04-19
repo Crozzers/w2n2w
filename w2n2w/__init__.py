@@ -116,7 +116,7 @@ def word_to_num(word):
                 if w not in number_words and not w.isdigit():
                     raise ValueError(f'invalid number word "{w}"')
 
-        split_magnitudes = [i for i in reversed(magnitudes.keys()) if i != 'hundred']
+        split_magnitudes = [i for i in reversed(list(magnitudes.keys())) if i != 'hundred']
         step_1 = []
 
         # split the number by magnitude, so 'four hundred thousand seven hundred and twelve'
