@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='w2n2w',
     packages=['w2n2w'],
-    version='0.2.0',
+    version='0.2.1',
     license='MIT',
     description='Convert words to numbers and back again',
     author='Crozzers',

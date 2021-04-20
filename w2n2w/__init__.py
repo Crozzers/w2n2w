@@ -55,6 +55,8 @@ number_words = {
 
 # this comes in useful in num_to_word
 number_words_backwards = {v: k for k, v in number_words.items()}
+# comes in useful in both functions
+_split_magnitudes = [i for i in magnitudes.keys() if i != 'hundred']
 
 
 def word_to_num(word):
@@ -124,46 +126,24 @@ def word_to_num(word):
                 return 0 - int(words)
             else:
                 return int(words)
-        else:
-            # check that all of the items in words is in fact a valid number/word
-            for w in words.split():
-                if w not in number_words and not w.isdigit():
-                    raise ValueError(f'invalid number word "{w}"')
+        elif words in number_words:
+            # if we have this pre-defined then return that straight away
+            if minus:
+                return 0 - number_words[words]
+            else:
+                return number_words[words]
 
-        split_magnitudes = [i for i in reversed(list(magnitudes.keys())) if i != 'hundred']
-        step_1 = []
-
-        # split the number by magnitude, so 'four hundred thousand seven hundred and twelve'
-        # gets split into ['four hundred thousand', 'seven hundred twelve']
-        for m in split_magnitudes:
-            if m in words:
-                # for each magnitude, if it's present in the phrase,
-                # find it's right-most occurrence and everything after that
-                # must be in the lower magnitude bracket
-                step_1.append(words[:words.rindex(m) + len(m)].strip())
-                words = words[words.rindex(m) + len(m):].strip()
-        if words:
-            # if there are numbers not grouped yet then them on the end
-            # these are likely the ones that dont meet any magnitude bracket
-            # (0-999)
-            step_1.append(words)
-
-        if not step_1:
-            # if we couldn't find anything parseable in the input
-            raise ValueError('could not find any valid material to parse')
-
-        # now we calculate the value of each segment by calculating a total
-        # and a multiplier. Regular number words increase the total and magnitude
-        # words increase the multiplier.
-        # EG: "twenty three million" would have a total of 20 + 3
-        # and a multiplier of 1 million. Combined at the end they will make
-        # 23 million.
-        step_2 = []
-        for item in step_1:
+        def process_item(item):
+            # now we calculate the value of each segment by calculating a total
+            # and a multiplier. Regular number words increase the total and magnitude
+            # words increase the multiplier.
+            # EG: "twenty three million" would have a total of 20 + 3
+            # and a multiplier of 1 million. Combined at the end they will make
+            # 23 million.
             multiplier = 1
             total = []
             for word in item.split():
-                if word in split_magnitudes:
+                if word in _split_magnitudes:
                     # if the current word is a magnitude word then increase the multiplier
                     multiplier *= magnitudes[word]
                 elif word == 'hundred':
@@ -184,23 +164,49 @@ def word_to_num(word):
                         total.append(int(word))
                     except ValueError:
                         # otherwise they must be in the number dict
-                        # if this fails then it was an invalid number but that's
-                        # not a problem we deal with
-                        total.append(number_words[word])
+                        # if this fails then it was an invalid number
+                        try:
+                            total.append(number_words[word])
+                        except KeyError:
+                            raise ValueError(f'invalid number word "{word}"')
 
             if total:
                 # if the total contains values, multiply them
                 # by the multiplier
-                step_2.append(sum(total) * multiplier)
+                return sum(total) * multiplier
             else:
                 # otherwise just return the multiplier.
                 # For items like "thousand"
-                step_2.append(multiplier)
+                return multiplier
+
+        result = []
+        # split the number by magnitude, so 'four hundred thousand seven hundred and twelve'
+        # gets split into ['four hundred thousand', 'seven hundred twelve']
+        for m in reversed(_split_magnitudes):
+            if m in words:
+                # for each magnitude, if it's present in the phrase,
+                # find it's right-most occurrence and everything after that
+                # must be in the lower magnitude bracket
+                result.append(
+                    process_item(
+                        words[: words.rindex(m) + len(m)].strip()
+                    )
+                )
+                words = words[words.rindex(m) + len(m):].strip()
+        if words:
+            # if there are numbers not grouped yet then them on the end
+            # these are likely the ones that dont meet any magnitude bracket
+            # (0-999)
+            result.append(process_item(words))
+
+        if not result:
+            # if we found no valid material to parse
+            raise ValueError('no valid number words detected')
 
         if minus:
-            return 0 - sum(step_2)
+            return 0 - sum(result)
         else:
-            return sum(step_2)
+            return sum(result)
 
 
 def num_to_word(num):
@@ -244,11 +250,8 @@ def num_to_word(num):
 
         # split the number into 3 digit chunks
         num = num[::-1]
-        chunks = []
-        for i in range(0, len(num), 3):
-            chunks.insert(0, num[i: i + 3][::-1])
-
-        split_magnitudes = [''] + [i for i in magnitudes.keys() if i != 'hundred']
+        chunks = [num[i: i + 3][::-1] for i in range(0, len(num), 3)]
+        split_magnitudes = [''] + _split_magnitudes
         parsed = []
 
         if len(chunks) > len(split_magnitudes):
@@ -259,13 +262,10 @@ def num_to_word(num):
 
             # use this alias for convenience
             lsm = len(split_magnitudes)
-            # reverse the chunks so the chunking in the for loop is easier to think about
-            chunks = chunks[::-1]
             for i in range(0, len(chunks), lsm - 1):
-                # chunk the list into chunks that can be handled by our selection of magnitudes
-                chunk = chunks[i: i + lsm - 1][::-1]
+                # chunk the list into chunks that can be handled by our selection of magnitudes,
                 # process each chunk and insert into the parsed list
-                w = num_to_word(''.join(chunk))
+                w = num_to_word2(''.join(reversed(chunks[i: i + lsm - 1])))
                 if w != 'zero':
                     # for big numbers like 10**25 there will be many trailing zeroes
                     # so dont add those
@@ -275,7 +275,7 @@ def num_to_word(num):
             # number of chunks we created
             parsed[0] = parsed[0] + ((' ' + split_magnitudes[-1]) * (i // (lsm - 1)))
         else:
-            for index, chunk in enumerate(chunks[::-1]):
+            for index, chunk in enumerate(chunks):
                 # get the suffix for the chunk we are parsing
                 addon = ''
                 if split_magnitudes[index]:
@@ -327,6 +327,10 @@ def num_to_word(num):
                     if tmp:
                         # if we parsed any values then insert them here
                         parsed.insert(0, tmp + addon)
+
+        if parsed[0] in magnitudes:
+            # if we parsed something like 100 and it came out as "hundred"
+            parsed.insert(0, 'one')
 
         if len(parsed) >= 2 and ' and ' not in ' '.join(parsed) and parsed[-1] not in split_magnitudes:
             # makes sure that the last segment of the number is joined by an 'and'
