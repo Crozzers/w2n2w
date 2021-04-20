@@ -265,7 +265,7 @@ def num_to_word(num):
             for i in range(0, len(chunks), lsm - 1):
                 # chunk the list into chunks that can be handled by our selection of magnitudes,
                 # process each chunk and insert into the parsed list
-                w = num_to_word2(''.join(reversed(chunks[i: i + lsm - 1])))
+                w = num_to_word(''.join(reversed(chunks[i: i + lsm - 1])))
                 if w != 'zero':
                     # for big numbers like 10**25 there will be many trailing zeroes
                     # so dont add those
