@@ -63,4 +63,6 @@ print(w2n2w.word_to_num('one two three'))
 > 6
 print(w2n2w.word_to_num('one thousandth'))  # you might expect 0.001
 > 1000
+print(w2n2w.word_to_num('one third'))
+> 4
 ```
