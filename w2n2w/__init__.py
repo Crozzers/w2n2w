@@ -16,7 +16,6 @@ magnitudes = {
 # because if you're parsing numbers bigger than that then this library
 # not having support is the least of your problems
 
-
 decimal_words = {
     'zero': 0,
     'one': 1,
@@ -53,15 +52,49 @@ number_words = {
     **magnitudes
 }
 
+ordinal_magnitudes = {k + 'th': v for k, v in magnitudes.items()}
+
+ordinal_words = {
+    'zeroth': 0,
+    'first': 1,
+    'second': 2,
+    'third': 3,
+    'fourth': 4,
+    'fifth': 5,
+    'sixth': 6,
+    'seventh': 7,
+    'eighth': 8,
+    'ninth': 9,
+    'tenth': 10,
+    'eleventh': 11,
+    'twelfth': 12,
+    'thirteenth': 13,
+    'fourteenth': 14,
+    'fifteenth': 15,
+    'sixteenth': 16,
+    'seventeenth': 17,
+    'eighteenth': 18,
+    'nineteenth': 19,
+    'twentieth': 20,
+    'thirtieth': 30,
+    'fourtieth': 40,
+    'fiftieth': 50,
+    'sixtieth': 60,
+    'seventieth': 70,
+    'eightieth': 80,
+    'ninetieth': 90,
+    **ordinal_magnitudes
+}
+
 # this comes in useful in num_to_word
 number_words_backwards = {v: k for k, v in number_words.items()}
 # comes in useful in both functions
-_split_magnitudes = [i for i in magnitudes.keys() if i != 'hundred']
+_split_magnitudes = [i for i in list(magnitudes.keys()) + list(ordinal_magnitudes.keys()) if i not in ('hundred', 'hundredth')]
 
 
 def word_to_num(word):
     '''
-    Converts a word, like "three", "sixty seven" to a number.
+    Converts a word, like "three" or "sixty seven" to a number.
     Can also handle decimals and negative numbers.
 
     Args:
@@ -145,8 +178,11 @@ def word_to_num(word):
             for word in item.split():
                 if word in _split_magnitudes:
                     # if the current word is a magnitude word then increase the multiplier
-                    multiplier *= magnitudes[word]
-                elif word == 'hundred':
+                    if word in magnitudes:
+                        multiplier *= magnitudes[word]
+                    else:
+                        multiplier *= ordinal_magnitudes[word]
+                elif word in ('hundred', 'hundredth'):
                     # for phrases like "one hundred 23 million"
                     # we don't want to increase the multiplier by 100, we want
                     # to add 100 to the total so we do that here
@@ -165,9 +201,11 @@ def word_to_num(word):
                     except ValueError:
                         # otherwise they must be in the number dict
                         # if this fails then it was an invalid number
-                        try:
+                        if word in number_words:
                             total.append(number_words[word])
-                        except KeyError:
+                        elif word in ordinal_words:
+                            total.append(ordinal_words[word])
+                        else:
                             raise ValueError(f'invalid number word "{word}"')
 
             if total:

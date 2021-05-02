@@ -28,6 +28,8 @@ print(w2n2w.word_to_num('negative twelve'))
 > -12
 print(w2n2w.word_to_num('12 thousand and thirty 8'))
 > 1238
+print(w2n2w.word_to_num('seventy first'))
+> 71
 ```
 
 It can also convert numbers into words
@@ -51,16 +53,14 @@ So 10^36 is represented as `10^33 * 1000` or 'one thousand decillion'.
 
 ## Things this library cannot do?
 
-Ordinals and fractions are a no-go.
+Fractions are a no-go and some other examples may produce unexpected behaviour.
 
 ```python
 import w2n2w
-print(w2n2w.word_to_num('first'))
-> ValueError: invalid number word "first"
-print(w2n2w.word_to_num('seventy second'))
-> ValueError: invalid number word "second"
 print(w2n2w.word_to_num('one and one half'))
 > ValueError: invalid number word "half"
 print(w2n2w.word_to_num('one two three'))
 > 6
+print(w2n2w.word_to_num('one thousandth'))  # you might expect 0.001
+> 1000
 ```
