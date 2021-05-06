@@ -1,3 +1,5 @@
+import math
+
 magnitudes = {
     'hundred': 100,
     'thousand': 1_000,
@@ -66,15 +68,16 @@ ordinal_words = {
 fraction_words = {
     'half': .5,
     'halves': .5,
-    'third': 1 / 3,
     'quarter': .25,
-    **{k: 1 / v for k, v in ordinal_words.items() if v > 4}
+    'quarters': .25
 }
-fraction_words = {
-    **fraction_words,
-    # add words like 'thirds' and 'quarters'
-    **{k + 's': v for k, v in fraction_words.items() if v < .5}
-}
+for k, v in ordinal_words.items():
+    if v > 2:
+        v = 1 / 2
+        fraction_words[k] = v
+        fraction_words[k + 's'] = v
+del(k)
+del(v)
 
 number_words = {
     **ordinal_words,
@@ -110,28 +113,301 @@ _split_magnitudes = [
 ]
 
 
-def word_to_num(word):
+class Word2Number():
+    '''Class to group the internal functions used to convert words to numbers'''
+    @staticmethod
+    def split_by_magnitude(words: str):
+        '''
+        Splits strings by words of magnitude orders.
+
+        Args:
+            words (str): the string to split
+
+        Returns:
+            list: list of str
+
+        Example:
+            ```python
+            print(Word2Number.split_by_magnitude('five million sixty five thousand two hundred and twenty three'))
+            # ['five million', 'sixty five thousand', 'two hundred and twenty three']
+            ```
+        '''
+        groups = []
+        # split the number by magnitude, so 'four hundred thousand seven hundred and twelve'
+        # gets split into ['four hundred thousand', 'seven hundred twelve']
+        for m in reversed(_split_magnitudes):
+            if m in words:
+                # for each magnitude, if it's present in the phrase,
+                # find it's right-most occurrence and everything after that
+                # must be in the lower magnitude bracket
+                pos = words.rindex(m)
+                groups.append(words[: pos + len(m)].strip())
+                words = words[pos + len(m):].strip()
+        if words:
+            # if there are numbers not grouped yet then them on the end
+            # these are likely the ones that dont meet any magnitude bracket
+            # (0-999)
+            groups.append(words)
+
+        return groups
+
+    @staticmethod
+    def group_by_magnitude_order(item: list):
+        '''
+        Groups a list of numbers according to changes in order of magnitude.
+        They are grouped if the orders of magnitude stop descending.
+
+        I use this to decide if a set of numbers should be a fraction or not because numbers
+        are usually said in descending orders of magnitude (eg: one hundred and twenty three)
+        whereas fractions will have equal or ascending orders of magnitude (eg: one thousandth).
+
+        Args:
+            item (list): this should be a list of integers or tuples. Tuples will be ignored
+        '''
+        result = []
+        chunk = []
+        last_order = None
+        last_diff = 0
+        for num in item:
+            if type(num) == tuple:
+                chunk.append(num)
+            else:
+                order = int(math.log10(num))
+                if last_order is None:
+                    last_order = order
+                diff = order - last_order
+                if diff > last_diff:
+                    result.append(chunk)
+                    chunk = []
+
+                last_diff = diff
+                last_order = order
+                chunk.append(num)
+        if chunk:
+            result.append(chunk)
+
+        return result
+
+    @classmethod
+    def process_chunk(cls, item: str, ordinals=False):
+        '''
+        Processes a 'chunk' and returns the number we think it is.
+        Chunks should be of a single magnitude order (use `Word2Number.split_by_magnitude`)
+        otherwise this will produce unexpected results.
+
+        We calculate a total and a multiplier for the chunk. Regular number words are added
+        to the total and magnitude words (thousand, million, ...) increase the multiplier.
+        EG: "twenty three million" would have a total of 20 + 3
+        and a multiplier of 1 million. Combined at the end they will make
+        23 million.
+
+        Args:
+            item (str): the chunk to parse
+            ordinals (bool): allow us to parse words like "third" as an ordinal (3rd) instead
+                of as a fraction (1/3)
+        '''
+        multiplier = 1
+        total = []
+        latent_total = 0  # a total we add to the main total after the processing is done
+        prefix = None  # the last non-number (invalid) word we have processed.
+        # ^ See the fractions section for details on this
+        previous = None  # the previous word we processed
+        run_gbm = False  # see the fraction section for this ones usage
+
+        if ' and ' in item:
+            # items like 'ten and two thirds' should be interpreted as "10 + 2/3"
+            it = []
+            for i in item.split(' and '):
+                # for each "and" statement
+                tmp_total, tmp_multiplier = cls.process_chunk(i)
+                tmp_result = (sum(tmp_total) or 1) * tmp_multiplier
+                if type(tmp_result) == float:
+                    # if it was a fraction we will add that up at the end
+                    # eg: 'forty five and two thirds'. Process the 45
+                    # then add 2/3 to it at the end
+                    latent_total += tmp_result
+                else:
+                    # otherwise, we should process it with the rest of the phrase
+                    # eg: 'four hundred and fifty six trillion' NEEDS to be
+                    # processed as one item
+                    it.append(i)
+
+            # now, all processed items have been removed so we can
+            # re-construct the items list and move on
+            item = ' and '.join(it)
+
+        item = item.split()
+        for word in item:
+            if word.isdigit():
+                total.append(int(word))
+            elif word in number_words:
+                if word in _split_magnitudes:
+                    # if the current word is a magnitude word then increase the multiplier
+                    if word in magnitudes:
+                        multiplier *= magnitudes[word]
+                    else:
+                        if not ordinals:
+                            multiplier *= 1 / ordinal_magnitudes[word]
+                        else:
+                            run_gbm = True
+                            total.append(ordinal_magnitudes[word])
+                elif word == 'hundred' or (word == 'hundredth' and previous not in ('one', 'a')):
+                    # for phrases like "one hundred 23 million"
+                    # we don't want to increase the multiplier by 100, we want
+                    # to add 100 to the total so we do that here
+                    # but for phrases like 'one hundredth' we want to parse that
+                    # as 1/100 (so not here)
+                    if total:
+                        # if total already contains some items then multiply all of them
+                        # by 100
+                        total = [sum(total) * 100]
+                    else:
+                        # if total doesn't contain any items then set
+                        # it to 100
+                        total = [100]
+                elif word in fraction_words:
+                    # the run_gbm bool controls whether we run our total through
+                    # cls.group_by_magnitude_order to decide what to do about some fractions
+                    run_gbm = True
+                    if ordinals and word in ordinal_words:
+                        # try to figure out what to do between cases such as:
+                        # 'seventy fifth' (as in 75th) or 'seventy fifths' (as in 70*(1/5))
+                        if previous:
+                            # if this is not the first word in the sequence then treat as a fraction
+                            # otherwise continue deciding
+                            if word.endswith('s') or previous in ('one', 'a'):
+                                # if the word ends with 's' then it's more likely to be
+                                # pluralised fraction (eg: three quarters) and if the previous word is
+                                # 'one' or 'a' then the phrase is probably 'one third' which is definitely
+                                # a fraction
+                                pass
+                            else:
+                                # if we have decided that it's probably not a fraction then process it as an ordinal
+                                # and return to the beginning of the loop
+                                total.append(ordinal_words[word])
+                                continue
+
+                    if word in ordinal_words:
+                        # if the number could be a fraction or ordinal we attatch both
+                        # and then decide which to use when we run the magnitude
+                        # grouper
+                        total.append((ordinal_words[word], fraction_words[word]))
+                    else:
+                        if prefix:
+                            # eg: 'ten and a third' should be treated as 10+(2/3)
+                            # so we append to total
+                            total.append(fraction_words[word])
+                        else:
+                            # eg: 'two thirds'
+                            multiplier *= fraction_words[word]
+                            prefix = None
+                else:
+                    # otherwise they must be in the number dict
+                    total.append(number_words[word])
+            else:
+                prefix = word
+                # dont parse words that arent numbers
+                pass
+            previous = word
+
+        if run_gbm and (total and (len(total) > 1 or type(total[0]) == tuple)):
+            # only run the gbm if we have the bool set and
+            # 1. the first item in `total` is tuple (so its a fraction we need to decide on)
+            # or 2. there are multiple items in `total`
+            gbm = cls.group_by_magnitude_order(total)
+            if len(gbm) == 1:
+                t = []
+                for i in total:
+                    if type(i) == tuple:
+                        multiplier *= i[1]
+                    else:
+                        t.append(i)
+                total = t
+            else:
+                total = []
+                for i in gbm[0]:
+                    total.append(i[0] if type(i) == tuple else i)
+                for group in gbm[1:]:
+                    tmp = []
+                    for i in group:
+                        tmp.append(i[0] if type(i) == tuple else i)
+                    multiplier *= 1 / sum(tmp)
+
+        if latent_total:
+            total.append(latent_total)
+
+        return total, multiplier
+
+
+def word_to_num(words):
     '''
     Converts a word, like "three" or "sixty seven" to a number.
     Can also handle decimals and negative numbers.
 
     Args:
-        word (str): the word to convert
+        words (str): the words to convert
 
     Returns:
         int
-        float: if the phrase contains the word 'point' or '.' it is treated as a decimal
+        float: if words contains "point" or "." it's treated as a decimal
+
+    Raises:
+        ValueError: if `words` is invalid
     '''
-    if type(word) != str:
+    if type(words) != str:
         raise ValueError('word must be a string')
 
-    if 'point' in word or '.' in word:
-        # so it's a decimal number decice on the delimiter, whether its the word "point"
+    # convert to lower case and strip whitespace
+    words = words.lower().strip()
+    # decide whether this will be a negative number
+    if words.startswith('minus'):
+        minus = True
+        words = words[6:].strip()
+    elif words.startswith('negative'):
+        minus = True
+        words = words[8:].strip()
+    elif words.startswith('-'):
+        minus = True
+        words = words[1:]
+    else:
+        minus = False
+
+    # replace hyphens, strip extra spaces
+    words = words.replace('-', ' ').strip()
+
+    # run some checks to see if we can get away with taking shortcuts instead
+    # of doing any actual work :)
+    if words.isdigit():
+        words = int(words)
+        return -words if minus else words
+    elif words in ordinal_words:
+        # we check ordinal words individually because words like 'third'
+        # are overwritten by fraction words.
+        words = ordinal_words[words]
+        return -words if minus else words
+    elif words in number_words:
+        words = number_words[words]
+        return -words if minus else words
+    else:
+        try:
+            # words like '1.5' will fail the isdigit() check so try this
+            words = float(words)
+        except Exception:
+            pass
+        else:
+            return -words if minus else words
+
+    # make sure that the input value actually has some numbers for us
+    if all(i not in number_words and i not in ordinal_words for i in words.split()):
+        raise ValueError
+
+    if 'point' in words or '.' in words:
+        # so it's a decimal number decide on the delimiter, whether its the word "point"
         # or a decimal point then split the word by that delimiter
-        delim = 'point' if 'point' in word else '.'
-        if word.count(delim) > 1:
+        delim = 'point' if 'point' in words else '.'
+        if words.count(delim) > 1:
             raise ValueError(f'too many occurences of "{delim}" to be a valid decimal')
-        left, right = word.split(delim)
+        left, right = words.split(delim)
         if not left:
             # EG: "point five"
             left = 0
@@ -155,198 +431,33 @@ def word_to_num(word):
                 except ValueError:
                     raise ValueError(f'invalid decimal word "{i}"')
 
-        return float(f'{left}.{r}')
+        number = float(f'{left}.{r}')
+        return -number if minus else number
     else:
-        # replace hyphens, strip extra spaces and split
-        words = word.replace('-', ' ').lower().strip()
-
-        # decide whether this will be a negative number
-        if words.startswith('minus'):
-            minus = True
-            words = words[6:].strip()
-        elif words.startswith('negative'):
-            minus = True
-            words = words[8:].strip()
-        else:
-            minus = False
-
-        if words.isdigit():
-            # if the word is a digit (EG: '25') then just
-            # convert straight away
-            if minus:
-                return 0 - int(words)
+        result = 0
+        groups = Word2Number.split_by_magnitude(words)
+        for chunk in groups:
+            # only allow parsing of ordinals for the last item
+            ordinals = chunk == groups[-1]
+            if ' of ' in chunk:
+                # 'of' is treated as a multiplication
+                mults = []
+                # process each chunk
+                for i in chunk.split(' of '):
+                    total, multiplier = Word2Number.process_chunk(i, ordinals=ordinals)
+                    mults.append((sum(total) or 1) * multiplier)
+                # multiply all the chunks together at the end
+                num = mults[0]
+                for i in mults[1:]:
+                    num *= i
             else:
-                return int(words)
+                # if there's not 'of' in the chunk then process normally
+                total, multiplier = Word2Number.process_chunk(chunk, ordinals=ordinals)
+                num = (sum(total) or 1) * multiplier
 
-        # if we have this pre-defined then return that straight away
-        if words in ordinal_words:
-            # check ordinals before all else because the fractions override the
-            # ordinals in the number_words dict, so treat strings such as 'hundredth'
-            # as an ordinal and 'one hundredth' as a fraction
-            if minus:
-                return 0 - ordinal_words[words]
-            else:
-                return ordinal_words[words]
-        elif words in number_words:
-            if minus:
-                return 0 - number_words[words]
-            else:
-                return number_words[words]
+            result += num
 
-        def process_item(item, fract_status=False):
-            # now we calculate the value of each segment by calculating a total
-            # and a multiplier. Regular number words increase the total and magnitude
-            # words increase the multiplier.
-            # EG: "twenty three million" would have a total of 20 + 3
-            # and a multiplier of 1 million. Combined at the end they will make
-            # 23 million.
-            multiplier = 1
-            total = []
-            latent_total = 0  # a total we add to the main total after the processing is done
-            prefix = None  # see the fractions section for how this is used
-            previous = None  # the previous word we processed
-            fails = 0  # how many words were deemed 'invalid'
-
-            if ' and ' in item:
-                # items like 'ten and two thirds' should be interpreted as "10 + 2/3"
-                it = []
-                for i in item.split(' and '):
-                    # for each "and" statement
-                    j, fract = process_item(i, fract_status=True)
-                    if fract:
-                        # if it was a fraction we will add that up at the end
-                        # eg: 'forty five and two thirds'. Process the 45
-                        # then add 2/3 to it at the end
-                        latent_total += j
-                    else:
-                        # otherwise, we should process it with the rest of the phrase
-                        # eg: 'four hundred and fifty six trillion' NEEDS to be
-                        # processed as one item
-                        it.append(i)
-
-                # now, all processed items have been removed so we can
-                # re-construct the items list and move on
-                item = ' and '.join(it)
-
-            if ' of ' in item:
-                # items like 'two thirds of ten' should be interpreted as "2/3 * 10"
-                item = item.split(' of ', 1)
-                multiplier *= process_item(item[1])
-                item = item[0]
-
-            item = item.split()
-            for word in item:
-                if word in _split_magnitudes:
-                    # if the current word is a magnitude word then increase the multiplier
-                    if word in magnitudes:
-                        multiplier *= magnitudes[word]
-                    else:
-                        multiplier *= ordinal_magnitudes[word]
-                elif word == 'hundred' or (word == 'hundredth' and previous not in ('one', 'a')):
-                    # for phrases like "one hundred 23 million"
-                    # we don't want to increase the multiplier by 100, we want
-                    # to add 100 to the total so we do that here
-                    # but for phrases like 'one hundredth' we want to parse that
-                    # as 1/100 (so not here)
-                    if total:
-                        # if total already contains some items then multiply all of them
-                        # by 100
-                        total = [sum(total) * 100]
-                    else:
-                        # if total doesn't contain any items then set
-                        # it to 100
-                        total = [100]
-                elif word in fraction_words:
-                    if word in ordinal_words:
-                        # try to figure out what to do between cases such as:
-                        # 'seventy fifth' (as in 75th) or 'seventy fifths' (as in 70*(1/5))
-                        if previous:
-                            # if this is not the first word in the sequence then treat as a fraction
-                            # otherwise continue deciding
-                            if word.endswith('s') or previous in ('one', 'a'):
-                                # if the word ends with 's' then it's more likely to be
-                                # pluralised fraction (eg: three quarters) and if the previous word is
-                                # 'one' or 'a' then the phrase is probably 'one third' which is definitely
-                                # a fraction
-                                pass
-                            else:
-                                # if we have decided that it's probably not a fraction then process it as an ordinal
-                                # and return to the beginning of the loop
-                                total.append(ordinal_words[word])
-                                continue
-                    if prefix:
-                        # eg: two and a third
-                        # `prefix` differs from `previous` in that prefix only stores
-                        # non-number words for cases like this
-                        total.append(fraction_words[word])
-                        prefix = None
-                    else:
-                        # eg: two thirds
-                        multiplier *= fraction_words[word]
-                else:
-                    try:
-                        # for words like "23" try to convert them directly
-                        total.append(int(word))
-                    except ValueError:
-                        # otherwise they must be in the number dict
-                        # if this fails then it was an invalid number
-                        if word in number_words:
-                            total.append(number_words[word])
-                        else:
-                            prefix = word
-                            fails += 1
-                previous = word
-
-            total = sum(total) + latent_total
-
-            if total:
-                # if the total contains values, multiply them
-                # by the multiplier
-                total = total * multiplier
-                if fract_status:
-                    return total, type(total) == float
-                else:
-                    return total
-            else:
-                if fails == len(item):
-                    # if every word in `item` was deemed not a number word
-                    # then raise an exception
-                    raise ValueError('No valid number words found')
-                # otherwise just return the multiplier.
-                # For items like "thousand"
-                if fract_status:
-                    return multiplier, False
-                else:
-                    return multiplier
-
-        result = []
-        # split the number by magnitude, so 'four hundred thousand seven hundred and twelve'
-        # gets split into ['four hundred thousand', 'seven hundred twelve']
-        for m in reversed(_split_magnitudes):
-            if m in words:
-                # for each magnitude, if it's present in the phrase,
-                # find it's right-most occurrence and everything after that
-                # must be in the lower magnitude bracket
-                result.append(
-                    process_item(
-                        words[: words.rindex(m) + len(m)].strip()
-                    )
-                )
-                words = words[words.rindex(m) + len(m):].strip()
-        if words:
-            # if there are numbers not grouped yet then them on the end
-            # these are likely the ones that dont meet any magnitude bracket
-            # (0-999)
-            result.append(process_item(words))
-
-        if not result:
-            # if we found no valid material to parse
-            raise ValueError('no valid number words detected')
-
-        if minus:
-            return 0 - sum(result)
-        else:
-            return sum(result)
+        return -result if minus else result
 
 
 def num_to_word(num, prefer_fraction_words=True):
@@ -379,6 +490,7 @@ def num_to_word(num, prefer_fraction_words=True):
 
     if not num.is_integer():
         num = str(num).split('.')
+
         # parse the left like a regular number because it essentially is
         left = num_to_word(int(num[0]))
 

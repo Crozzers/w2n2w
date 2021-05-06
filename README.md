@@ -51,18 +51,16 @@ print(w2n2w.num_to_word(0))
 In theory this library can handle any real number (positive or negative) but for numbers greater than or equal to one undecillion (10^36) you will start to face issues, as these numbers are represented in terms of the highest order of magnitude this library knows.  
 So 10^36 is represented as `10^33 * 1000` or 'one thousand decillion'.
 
-## Things this library cannot do?
+## Things to bear in mind
 
-Fractions are a no-go and some other examples may produce unexpected behaviour.
+Some examples may produce unexpected behaviour.
 
 ```python
 import w2n2w
-print(w2n2w.word_to_num('one and one half'))
-> ValueError: invalid number word "half"
 print(w2n2w.word_to_num('one two three'))
 > 6
-print(w2n2w.word_to_num('one thousandth'))  # you might expect 0.001
-> 1000
-print(w2n2w.word_to_num('one third'))
-> 4
+print(w2n2w.word_to_num('thousandth'), w2n2w.word_to_num('one thousandth'))
+> 1000, 0.001
+print(w2n2w.word_to_num('third'), w2n2w.word_to_num('one third'))
+> 3, 0.3333333333333
 ```

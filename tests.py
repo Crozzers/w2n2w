@@ -5,6 +5,7 @@ import w2n2w
 class TestWordToNumber(unittest.TestCase):
     def test_positives(self):
         self.assertEqual(w2n2w.word_to_num("two million three thousand nine hundred and eighty four"), 2003984)
+        self.assertEqual(w2n2w.word_to_num("one hundred and twenty three million four hundred and fifty six thousand seven hundred and eighty nine"), 123456789)
         self.assertEqual(w2n2w.word_to_num("nineteen"), 19)
         self.assertEqual(w2n2w.word_to_num("two thousand and nineteen"), 2019)
         self.assertEqual(w2n2w.word_to_num("two million three thousand and nineteen"), 2003019)
@@ -22,15 +23,12 @@ class TestWordToNumber(unittest.TestCase):
         self.assertEqual(w2n2w.word_to_num('two million twenty three thousand and forty nine point two three six nine'), 2023049.2369)
         self.assertEqual(w2n2w.word_to_num('one billion two million twenty three thousand and forty nine point two three six nine'), 1002023049.2369)
         self.assertEqual(w2n2w.word_to_num('point one'), 0.1)
-        self.assertEqual(w2n2w.word_to_num('point'), 0)
-        # self.assertEqual(w2n2w.word_to_num('point nineteen'), 0)  I don't if this behaviour makes sense or not
         self.assertEqual(w2n2w.word_to_num('one hundred thirty-five'), 135)
         self.assertEqual(w2n2w.word_to_num('hundred'), 100)
         self.assertEqual(w2n2w.word_to_num('thousand'), 1000)
         self.assertEqual(w2n2w.word_to_num('million'), 1000000)
         self.assertEqual(w2n2w.word_to_num('billion'), 1000000000)
         self.assertEqual(w2n2w.word_to_num('nine point nine nine nine'), 9.999)
-        # self.assertEqual(w2n2w.word_to_num('seventh point nineteen'), 0)  I don't if this behaviour makes sense or not
         self.assertEqual(w2n2w.word_to_num('minus twenty-two point two six'), -22.26)
         self.assertEqual(w2n2w.word_to_num('negative ninety nine'), -99)
         self.assertEqual(w2n2w.word_to_num('negative zero'), 0)
@@ -39,8 +37,10 @@ class TestWordToNumber(unittest.TestCase):
 
         self.assertEqual(w2n2w.word_to_num('seventy first'), 71)
         self.assertEqual(w2n2w.word_to_num('hundredth'), 100)
+        self.assertEqual(w2n2w.word_to_num('one hundredth'), 1 / 100)
         self.assertEqual(w2n2w.word_to_num('millionth'), 10**6)
-        self.assertEqual(w2n2w.word_to_num('millionth hundredth thousandth three hundred and ninety second'), 1_100_392)
+        self.assertEqual(w2n2w.word_to_num('one millionth'), 1 / (10**6))
+        self.assertEqual(w2n2w.word_to_num('million hundred thousand three hundred and ninety second'), 1_100_392)
         self.assertEqual(w2n2w.word_to_num('minus one hundred and thirty first'), -131)
         self.assertEqual(w2n2w.word_to_num('seventy first point 5'), 71.5)
 
@@ -50,12 +50,13 @@ class TestWordToNumber(unittest.TestCase):
         self.assertEqual(w2n2w.word_to_num('one halves'), .5)
         self.assertEqual(w2n2w.word_to_num('half a million and a third'), 500_000 + (1 / 3))
         self.assertEqual(w2n2w.word_to_num('a seventeenth of sixty two'), 62 / 17)
-        self.assertEqual(w2n2w.word_to_num('a seventeenth of sixty two and two thirds'), (62/17) + (2/3))
+        self.assertEqual(w2n2w.word_to_num('a seventeenth of sixty two and two thirds'), (62 + (2 / 3)) / 17)
         self.assertEqual(w2n2w.word_to_num('three thirds of ten'), 10)
 
     def test_negatives(self):
         self.assertRaises(ValueError, w2n2w.word_to_num, '-')
         self.assertRaises(ValueError, w2n2w.word_to_num, 'on')
+        self.assertRaises(ValueError, w2n2w.word_to_num, 'point')
         # self.assertRaises(ValueError, w2n2w.word_to_num, 'million four million')
         # I'm not sure what to do with this ^ so I'll come back to it
         self.assertRaises(ValueError, w2n2w.word_to_num, 'one billion point two million twenty three thousand and forty nine point two three six nine')
