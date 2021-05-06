@@ -352,10 +352,11 @@ def word_to_num(words):
         float: if words contains "point" or "." it's treated as a decimal
 
     Raises:
+        TypeError: if `words` is not a string
         ValueError: if `words` is invalid
     '''
     if type(words) != str:
-        raise ValueError('word must be a string')
+        raise TypeError('word must be a string')
 
     # convert to lower case and strip whitespace
     words = words.lower().strip()
@@ -471,9 +472,21 @@ def num_to_word(num, prefer_fraction_words=True):
 
     Returns:
         str
+
+    Raises:
+        TypeError: if num isn't int or float
     '''
-    num = float(num)
-    if prefer_fraction_words:
+    if type(num) == str:
+        try:
+            num = int(num)
+        except Exception:
+            num = float(num)
+
+    if type(num) not in (int, float):
+        print(type(num))
+        raise TypeError('num must be int or float')
+
+    if type(num) == float and prefer_fraction_words:
         if abs(num) in number_words_backwards:
             # if we already have the value computed (eg: a third)
             minus = num < 0
@@ -488,7 +501,7 @@ def num_to_word(num, prefer_fraction_words=True):
             else:
                 return word
 
-    if not num.is_integer():
+    if type(num) == float and not num.is_integer():
         num = str(num).split('.')
 
         # parse the left like a regular number because it essentially is
@@ -518,7 +531,7 @@ def num_to_word(num, prefer_fraction_words=True):
         # split the number into 3 digit chunks
         num = num[::-1]
         chunks = [num[i: i + 3][::-1] for i in range(0, len(num), 3)]
-        split_magnitudes = [''] + _split_magnitudes
+        split_magnitudes = [''] + [i for i in _split_magnitudes if i not in ordinal_magnitudes]
         parsed = []
 
         if len(chunks) > len(split_magnitudes):
