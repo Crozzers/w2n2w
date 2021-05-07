@@ -73,7 +73,7 @@ fraction_words = {
 }
 for k, v in ordinal_words.items():
     if v > 2:
-        v = 1 / 2
+        v = 1 / v
         fraction_words[k] = v
         fraction_words[k + 's'] = v
 del(k)
@@ -176,7 +176,7 @@ class Word2Number():
                 if last_order is None:
                     last_order = order
                 diff = order - last_order
-                if diff > last_diff:
+                if diff >= last_diff and chunk:
                     result.append(chunk)
                     chunk = []
 
@@ -478,12 +478,12 @@ def num_to_word(num, prefer_fraction_words=True):
     '''
     if type(num) == str:
         try:
+            # we try an int first because huge numbers don't play nicely with floats
             num = int(num)
         except Exception:
             num = float(num)
 
     if type(num) not in (int, float):
-        print(type(num))
         raise TypeError('num must be int or float')
 
     if type(num) == float and prefer_fraction_words:
