@@ -213,6 +213,7 @@ class Word2Number():
         # ^ See the fractions section for details on this
         previous = None  # the previous word we processed
         run_gbm = False  # see the fraction section for this ones usage
+        fails = []  # invalid words we failed to parse
 
         if ' and ' in item:
             # items like 'ten and two thirds' should be interpreted as "10 + 2/3"
@@ -305,9 +306,9 @@ class Word2Number():
                     # otherwise they must be in the number dict
                     total.append(number_words[word])
             else:
-                prefix = word
                 # dont parse words that arent numbers
-                pass
+                prefix = word
+                fails.append(word)
             previous = word
 
         if run_gbm and (total and (len(total) > 1 or type(total[0]) == tuple)):
@@ -335,6 +336,10 @@ class Word2Number():
 
         if latent_total:
             total.append(latent_total)
+
+        if fails == item:
+            # if every word was invalid
+            raise ValueError('failed to parse. No valid number words detected')
 
         return total, multiplier
 
@@ -438,25 +443,28 @@ def word_to_num(words):
         result = 0
         groups = Word2Number.split_by_magnitude(words)
         for chunk in groups:
-            # only allow parsing of ordinals for the last item
-            ordinals = chunk == groups[-1]
-            if ' of ' in chunk:
-                # 'of' is treated as a multiplication
-                mults = []
-                # process each chunk
-                for i in chunk.split(' of '):
-                    total, multiplier = Word2Number.process_chunk(i, ordinals=ordinals)
-                    mults.append((sum(total) or 1) * multiplier)
-                # multiply all the chunks together at the end
-                num = mults[0]
-                for i in mults[1:]:
-                    num *= i
-            else:
-                # if there's not 'of' in the chunk then process normally
-                total, multiplier = Word2Number.process_chunk(chunk, ordinals=ordinals)
-                num = (sum(total) or 1) * multiplier
+            try:
+                # only allow parsing of ordinals for the last item
+                ordinals = chunk == groups[-1]
+                if ' of ' in chunk:
+                    # 'of' is treated as a multiplication
+                    mults = []
+                    # process each chunk
+                    for i in chunk.split(' of '):
+                        total, multiplier = Word2Number.process_chunk(i, ordinals=ordinals)
+                        mults.append((sum(total) or 1) * multiplier)
+                    # multiply all the chunks together at the end
+                    num = mults[0]
+                    for i in mults[1:]:
+                        num *= i
+                else:
+                    # if there's not 'of' in the chunk then process normally
+                    total, multiplier = Word2Number.process_chunk(chunk, ordinals=ordinals)
+                    num = (sum(total) or 1) * multiplier
 
-            result += num
+                result += num
+            except ValueError:
+                pass
 
         return -result if minus else result
 

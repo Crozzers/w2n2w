@@ -10,7 +10,9 @@ class TestWordToNumber(unittest.TestCase):
         self.assertEqual(w2n2w.word_to_num("two thousand and nineteen"), 2019)
         self.assertEqual(w2n2w.word_to_num("two million three thousand and nineteen"), 2003019)
         self.assertEqual(w2n2w.word_to_num('three billion'), 3000000000)
+        self.assertAlmostEqual(w2n2w.word_to_num('three billionths'), 3 / 10**9)  # rounding error caused by floats or something idk
         self.assertEqual(w2n2w.word_to_num('three million'), 3000000)
+        self.assertEqual(w2n2w.word_to_num('three millionths'), 3 / 10**6)
         self.assertEqual(w2n2w.word_to_num('one hundred twenty three million four hundred fifty six thousand seven hundred and eighty nine'), 123456789)
         self.assertEqual(w2n2w.word_to_num('eleven'), 11)
         self.assertEqual(w2n2w.word_to_num('nineteen billion and nineteen'), 19000000019)
