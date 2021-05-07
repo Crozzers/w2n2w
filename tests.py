@@ -60,7 +60,7 @@ class TestWordToNumber(unittest.TestCase):
         # self.assertRaises(ValueError, w2n2w.word_to_num, 'million four million')
         # I'm not sure what to do with this ^ so I'll come back to it
         self.assertRaises(ValueError, w2n2w.word_to_num, 'one billion point two million twenty three thousand and forty nine point two three six nine')
-        self.assertRaises(ValueError, w2n2w.word_to_num, 112)
+        self.assertRaises(TypeError, w2n2w.word_to_num, 112)
 
 
 class TestNumberToWord(unittest.TestCase):

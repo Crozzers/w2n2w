@@ -176,7 +176,7 @@ class Word2Number():
                 if last_order is None:
                     last_order = order
                 diff = order - last_order
-                if diff >= last_diff and chunk:
+                if diff > last_diff and chunk:
                     result.append(chunk)
                     chunk = []
 
