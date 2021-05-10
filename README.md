@@ -63,4 +63,6 @@ print(w2n2w.word_to_num('thousandth'), w2n2w.word_to_num('one thousandth'))
 > 1000, 0.001
 print(w2n2w.word_to_num('third'), w2n2w.word_to_num('one third'))
 > 3, 0.3333333333333
+print(w2n2w.word_to_num('forty seventh'), w2n2w.word_to_num('forty sevenths'))
+> 47, 5.7142857142857135
 ```
