@@ -22,12 +22,14 @@ print(w2n2w.word_to_num('forty three'))
 > 43
 print(w2n2w.word_to_num('twenty-two point nine one'))
 > 22.91
-print(w2n2w.word_to_num('one hundred and twenty three million four hundred and fifty six thousand seven hundred and eighty nine'))
+print(w2n2w.word_to_num(('one hundred and twenty three million'
+                         ' four hundred and fifty six thousand'
+                         ' seven hundred and eighty nine')))
 > 123456789
 print(w2n2w.word_to_num('negative twelve'))
 > -12
 print(w2n2w.word_to_num('12 thousand and thirty 8'))
-> 1238
+> 12038
 print(w2n2w.word_to_num('seventy first'))
 > 71
 ```
@@ -36,10 +38,13 @@ It can also convert numbers into words
 
 ```python
 import w2n2w
+from pprint import pprint
 print(w2n2w.num_to_word(1234))
 > 'one thousand two hundred and thirty four'
-print(w2n2w.num_to_word(123456789))
-> 'one hundred and twenty three million four hundred and fifty six thousand seven hundred and eighty nine'
+# use pprint here to make long line more readable
+pprint(w2n2w.num_to_word(123456789))
+> ('one hundred and twenty three million four hundred and fifty six thousand '
+>  'seven hundred and eighty nine')
 print(w2n2w.num_to_word(1.52))
 > 'one point five two'
 print(w2n2w.num_to_word(-0.999))
